@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour
@@ -36,7 +37,15 @@ public class PlayerController : MonoBehaviour
     [Header("Ground Check Settings")]
     [SerializeField] private float rayDistance = 0.2f; // 발밑으로 쏠 레이의 길이
     [SerializeField] private Color rayColor = Color.red;
+    [Header("Wepon Object")]
+    [SerializeField] private GameObject weaponObject;
+    [SerializeField] private Transform backPos;
+    [SerializeField] private Transform handPos;
+    [SerializeField] private Transform firePoint; 
+    [SerializeField] private float fireRate = 0.2f; 
 
+    
+    private Player player;
     private Rigidbody rb;
     private int currentJumpCount = 0;
     private bool isGrounded;
@@ -51,17 +60,20 @@ public class PlayerController : MonoBehaviour
     public float CurrentStamina => currentStamina;
     public float MaxStamina => maxStamina;
     private float lastStaminaUseTime;
+    public bool isArmed = false;
+    private float nextFireTime = 0f;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         if (anim == null) anim = GetComponentInChildren<Animator>();
-        
+
         rb.freezeRotation = true;
         Cursor.lockState = CursorLockMode.Locked;
         currentMoveSpeed = walkSpeed;
         currentStamina = maxStamina;
         InitializeView();
+        AttachWeaponTo(backPos);
     }
 
     void Update()
@@ -70,13 +82,15 @@ public class PlayerController : MonoBehaviour
         HandleJump();
         HandleViewToggle();
         HandleStaminaRegen();
+        ToggleArmed();
+        UpdateAnimation(); 
+        CheckFire();
     }
 
     void FixedUpdate()
     {
         HandleMovement();
         CheckGround();
-        UpdateAnimation(); 
     }
 
     void LateUpdate()
@@ -99,6 +113,7 @@ public class PlayerController : MonoBehaviour
         anim.SetFloat("InputX", currentInputVector.x);
         anim.SetFloat("InputZ", currentInputVector.y);
         anim.SetBool("IsGrounded", isGrounded);
+        anim.SetBool("IsArmed", isArmed);
     }
 
     private void HandleMovement()
@@ -227,5 +242,59 @@ public class PlayerController : MonoBehaviour
         Debug.DrawRay(rayStartPos, Vector3.down * rayDistance, hit ? Color.green : rayColor);
         isGrounded = hit;
         if (isGrounded && rb.linearVelocity.y <= 0) currentJumpCount = 0;
+    }
+
+    private void ToggleArmed()
+    {
+        if(Input.GetKeyDown(KeyCode.Alpha1)) {
+            
+            if(!isArmed)
+            {
+                if(weaponObject != null)
+                {
+                    AttachWeaponTo(handPos);
+                    Debug.Log("무장 활성화");
+                }
+            }
+            else
+            {
+                if(weaponObject != null)
+                {
+                    AttachWeaponTo(backPos);
+                    Debug.Log("무장해제");
+                }
+            }
+            isArmed = !isArmed;
+        }
+    }
+    private void AttachWeaponTo(Transform target)
+    {
+        weaponObject.transform.SetParent(target);
+        weaponObject.transform.localPosition = Vector3.zero;
+        weaponObject.transform.localRotation = Quaternion.identity;
+    }
+    void CheckFire()
+    {
+        if (!isArmed) return;
+
+        // 좌클릭 + 연사 딜레이 체크
+        if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
+        {
+            if (BulletManager.Instance == null)
+            {
+                Debug.LogError("BulletPool이 씬에 없습니다!");
+                return;
+            }
+
+            // 풀에서 총알 가져오기
+            GameObject bullet = BulletManager.Instance.GetBullet();
+
+            // 발사 위치와 방향 설정
+            bullet.transform.position = firePoint.position;
+            bullet.transform.rotation = firePoint.rotation;
+
+            Debug.Log("총알 발사!");
+            nextFireTime = Time.time + fireRate;
+        }
     }
 }
