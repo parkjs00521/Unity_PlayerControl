@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -5,11 +6,21 @@ public class BulletManager : MonoBehaviour
 {
     public static BulletManager Instance { get; private set; }
 
-    [Header("탄창 설정")]
+    [Header("Mag Settings")]
     [SerializeField] private GameObject bulletPrefab;
-    [SerializeField] private int MagSize = 20;
+    [SerializeField] private int magSize = 20;
+    [SerializeField] private float reloadTime = 2f;
+    [Header("AudioClip Settings")]
+    [SerializeField] private AudioClip reloadClip;
 
     private Queue<GameObject> pool = new Queue<GameObject>();
+
+    private int currentMag;
+    private bool isReloading = false;
+
+    public int CurrentMag   => currentMag;
+    public int MagSize      => magSize;
+    private AudioSource audioSource;
 
     void Awake()
     {
@@ -20,47 +31,77 @@ public class BulletManager : MonoBehaviour
         }
         Instance = this;
 
+        audioSource = gameObject.GetComponent<AudioSource>();
+        if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+
+
+        currentMag = magSize;   
         InitializePool();
     }
 
-    // 풀 초기화 - 미리 총알 생성
-    void InitializePool()
+    void Update()
     {
-        for (int i = 0; i < MagSize; i++)
+        // R키 재장전
+        if (Input.GetKeyDown(KeyCode.R) && !isReloading && currentMag < magSize)
         {
-            GameObject bullet = CreateNewBullet();
-            pool.Enqueue(bullet);
+            StartCoroutine(Reload());
         }
     }
 
-    // 총알 생성 (비활성 상태로)
-    GameObject CreateNewBullet()
-    {
-        GameObject bullet = Instantiate(bulletPrefab, transform);
-        bullet.SetActive(false);
-        return bullet;
-    }
-
-    // 풀에서 총알 꺼내기
     public GameObject GetBullet()
     {
-        // 풀이 비었으면 새로 생성 (자동 확장)
-        if (pool.Count == 0)
+        if (isReloading)
         {
-            Debug.Log("풀 확장 - 새 총알 생성");
-            return CreateNewBullet();
+            return null;
         }
+
+        if (currentMag <= 0)
+        {
+            Debug.Log("탄약 없음! 재장전중...");
+            StartCoroutine(Reload());   // 탄약 소진 시 자동 재장전
+            return null;
+        }
+
+        currentMag--;
+        Debug.Log($"탄약: {currentMag} / {magSize}");
+
+        if (pool.Count == 0) return CreateNewBullet();
 
         GameObject bullet = pool.Dequeue();
         bullet.SetActive(true);
         return bullet;
     }
 
-    // 총알 반환 (비활성화 후 풀에 다시 넣기)
+
+    private IEnumerator Reload()
+    {
+        isReloading = true;
+        audioSource.PlayOneShot(reloadClip);
+
+        yield return new WaitForSeconds(reloadTime);
+
+        currentMag = magSize;
+        isReloading = false;
+        Debug.Log("재장전 완료!");
+    }
+
     public void ReturnBullet(GameObject bullet)
     {
         bullet.SetActive(false);
         bullet.transform.SetParent(transform);
         pool.Enqueue(bullet);
+    }
+
+    void InitializePool()
+    {
+        for (int i = 0; i < magSize; i++)
+            pool.Enqueue(CreateNewBullet());
+    }
+
+    GameObject CreateNewBullet()
+    {
+        GameObject bullet = Instantiate(bulletPrefab, transform);
+        bullet.SetActive(false);
+        return bullet;
     }
 }

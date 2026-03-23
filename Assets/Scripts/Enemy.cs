@@ -5,10 +5,17 @@ public class Enemy : MonoBehaviour, IDamageable
 {
     private float currentHp = 100f;
     private bool isDead = false;
+    private Rigidbody rb;
 
     [SerializeField] private float attackDamage = 1f;
-    [SerializeField] private float attackCooldown = 10f; // ✅ 데미지 쿨다운 (초)
-    private float lastAttackTime = -999f;               // ✅ 마지막 공격 시간
+    [SerializeField] private float attackCooldown = 10f;
+    private float lastAttackTime = -999f;
+
+    void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+        rb.freezeRotation = true;
+    }
 
     public void TakeDamage(int damage)
     {
@@ -25,7 +32,6 @@ public class Enemy : MonoBehaviour, IDamageable
         if (isDead) return;
         if (!collision.gameObject.CompareTag("Player")) return;
 
-        // 쿨다운 체크 - 마지막 공격으로부터 일정 시간이 지났을 때만 데미지
         if (Time.time - lastAttackTime < attackCooldown) return;
 
         lastAttackTime = Time.time;

@@ -32,4 +32,11 @@ public class Player : MonoBehaviour, IDamageable
         isDead = true;
         Debug.Log("플레이어 사망");
     }
+    public void Heal(int amount)
+    {
+        if(isDead) return;
+        currentHp += amount;
+        currentHp = Mathf.Min(currentHp, maxHp);
+        Debug.Log("플레이어 체력 회복!!");
+    }
 }

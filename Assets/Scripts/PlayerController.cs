@@ -1,8 +1,7 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 [RequireComponent(typeof(Rigidbody))]
-public class PlayerController : MonoBehaviour
+public class PlayerController : MonoBehaviour, IItemCollector
 {
     [Header("Movement Settings")]
     [SerializeField] private float walkSpeed = 5f;      // 걷기 속도
@@ -43,6 +42,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Transform handPos;
     [SerializeField] private Transform firePoint; 
     [SerializeField] private float fireRate = 0.2f; 
+    [SerializeField] private AudioClip fireSound;
 
     
     private Player player;
@@ -52,6 +52,7 @@ public class PlayerController : MonoBehaviour
     private float verticalRotation = 0f; 
     private bool isFirstPerson = true; 
     private bool isJumping = false;
+    private AudioSource audioSource;
 
     private Vector2 currentInputVector;
     private Vector2 smoothInputVelocity;
@@ -62,10 +63,12 @@ public class PlayerController : MonoBehaviour
     private float lastStaminaUseTime;
     public bool isArmed = false;
     private float nextFireTime = 0f;
+    public bool canMove = true;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        player = GetComponent<Player>();
         if (anim == null) anim = GetComponentInChildren<Animator>();
 
         rb.freezeRotation = true;
@@ -74,6 +77,8 @@ public class PlayerController : MonoBehaviour
         currentStamina = maxStamina;
         InitializeView();
         AttachWeaponTo(backPos);
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
     }
 
     void Update()
@@ -118,6 +123,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovement()
     {
+
+        if (!canMove)
+        {
+            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            return;
+        }
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
 
@@ -180,7 +191,7 @@ public class PlayerController : MonoBehaviour
         currentJumpCount++;
         isJumping = false; 
     }
-    private void ConsumeStamina(float amount)
+    public void ConsumeStamina(float amount)
     {
         currentStamina -= amount;
         if (currentStamina < 0) currentStamina = 0;
@@ -277,24 +288,28 @@ public class PlayerController : MonoBehaviour
     {
         if (!isArmed) return;
 
-        // 좌클릭 + 연사 딜레이 체크
         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
         {
-            if (BulletManager.Instance == null)
-            {
-                Debug.LogError("BulletPool이 씬에 없습니다!");
-                return;
-            }
-
-            // 풀에서 총알 가져오기
             GameObject bullet = BulletManager.Instance.GetBullet();
 
-            // 발사 위치와 방향 설정
+            // 탄약부족시 반환
+            if (bullet == null) return;
+
             bullet.transform.position = firePoint.position;
             bullet.transform.rotation = firePoint.rotation;
 
-            Debug.Log("총알 발사!");
+            if (fireSound != null) audioSource.PlayOneShot(fireSound, 0.1f);
+
             nextFireTime = Time.time + fireRate;
+        }
+    }
+    public void CollectItem(ItemData item)
+    {
+        switch(item.itemType)
+        {
+            case ItemType.Consumable:
+                player.Heal(item.value);
+                break;
         }
     }
 }

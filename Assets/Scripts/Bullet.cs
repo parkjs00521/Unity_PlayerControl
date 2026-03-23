@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class Bullet : MonoBehaviour
 {
-    [Header("총알 설정")]
+    [Header("Bullet Settings")]
     [SerializeField] private float speed = 20f;        // 총알 속도
     [SerializeField] private float lifetime = 3f;      // 자동 회수 시간
     [SerializeField] private int damage = 10;          // 데미지
@@ -31,6 +31,7 @@ public class Bullet : MonoBehaviour
     {
         if (other.TryGetComponent<IDamageable>(out var target))
         {
+            Debug.Log("총알맞음");
             target.TakeDamage(damage);
         }
     }
